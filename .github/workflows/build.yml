@@ -36,7 +36,7 @@ jobs:
           git config user.email "github-actions@github.com"
           git add version.json
           git commit -m "chore: bump version.json to $VERSION" || echo "No changes to commit"
-          git push
+          git push origin HEAD:main
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
