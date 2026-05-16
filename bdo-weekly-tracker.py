@@ -6,14 +6,14 @@ from urllib.request import urlopen
 from urllib.error import URLError
 
 # ── Version ──────────────────────────────────────────────────────────────────
-APP_VERSION     = "1.0.1"
+APP_VERSION     = "1.0.0"
 VERSION_URL     = "https://gist.githubusercontent.com/StormProgramming/8101519cb57aa8d3d974cc9bcad7063f/raw/version.json"
 RELEASES_URL    = "https://github.com/StormProgramming/bdo-weekly-tracker/releases/latest"
 
 # ── Data path ────────────────────────────────────────────────────────────────
 def get_data_path():
-    base = os.path.dirname(sys.executable) if getattr(sys, 'frozen', False) \
-           else os.path.dirname(os.path.abspath(__file__))
+    base = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "BDOTracker")
+    os.makedirs(base, exist_ok=True)
     return os.path.join(base, "bdo_tracker_data.json")
 
 DATA_FILE = get_data_path()
@@ -212,6 +212,8 @@ class BDOTracker:
         self.subtitle_var = tk.StringVar()
         tk.Label(left, textvariable=self.subtitle_var, font=F_SMALL,
                  bg=SURFACE, fg=TEXT_MID).pack(anchor="w", pady=(2,0))
+        tk.Label(left, text="made by Storm", font=("Segoe UI", 7),
+                 bg=SURFACE, fg=TEXT_DIM).pack(anchor="w", pady=(2,0))
 
         right = tk.Frame(inner, bg=SURFACE)
         right.pack(side="right")
