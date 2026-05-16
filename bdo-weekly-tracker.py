@@ -6,7 +6,7 @@ from urllib.request import urlopen
 from urllib.error import URLError
 
 # ── Version ──────────────────────────────────────────────────────────────────
-APP_VERSION     = "1.0.1"
+APP_VERSION     = "1.0.2"
 VERSION_URL     = "https://gist.githubusercontent.com/StormProgramming/8101519cb57aa8d3d974cc9bcad7063f/raw/version.json"
 RELEASES_URL    = "https://github.com/StormProgramming/bdo-weekly-tracker/releases/latest"
 
@@ -401,7 +401,7 @@ class BDOTracker:
         done = state.get("done", False)
         if done:
             rem = state.get("reset_at", 0) - time.time()
-            return f"Completed  {fmt_delta(rem)}" if rem > 0 else "Ready to reset"
+            return f"Completed {fmt_delta(rem)}" if rem > 0 else "Ready to reset"
         # 5-day timer only makes sense after a kill — show nothing when not done
         if rtype == "5day":
             return "No recent kill"
