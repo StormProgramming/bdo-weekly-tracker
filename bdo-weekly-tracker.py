@@ -6,7 +6,7 @@ from urllib.request import urlopen
 from urllib.error import URLError
 
 # ── Version ──────────────────────────────────────────────────────────────────
-APP_VERSION     = "1.0.3"
+APP_VERSION     = "1.0.4"
 VERSION_URL     = "https://raw.githubusercontent.com/StormProgramming/bdo-weekly-tracker/main/version.json"
 RELEASES_URL    = "https://github.com/StormProgramming/bdo-weekly-tracker/releases/latest"
 
@@ -159,10 +159,13 @@ class BDOTracker:
                 data = json.loads(r.read().decode())
             latest = data.get("version", "")
             if latest and latest != APP_VERSION:
-                # Schedule the popup on the main thread
-                self.root.after(0, lambda: self._show_update_dialog(latest))
+                # Only notify if local version is strictly older
+                local_parts  = [int(x) for x in APP_VERSION.split(".")]
+                latest_parts = [int(x) for x in latest.split(".")]
+                if local_parts < latest_parts:
+                    self.root.after(0, lambda: self._show_update_dialog(latest))
         except Exception:
-            pass  # Silently ignore — no internet, server down, etc.
+            pass
 
     def _show_update_dialog(self, latest):
         msg = (
@@ -183,7 +186,6 @@ class BDOTracker:
                 pass
 
     def _on_configure(self, event):
-        # Only save if it's the root window being resized/moved
         if event.widget is self.root:
             self._pending_geometry = self.root.geometry()
 
@@ -212,7 +214,7 @@ class BDOTracker:
         self.subtitle_var = tk.StringVar()
         tk.Label(left, textvariable=self.subtitle_var, font=F_SMALL,
                  bg=SURFACE, fg=TEXT_MID).pack(anchor="w", pady=(2,0))
-        tk.Label(left, text="made by Storm", font=("Segoe UI", 7),
+        tk.Label(left, text="Developed by Storm", font=("Segoe UI", 7),
                  bg=SURFACE, fg=TEXT_DIM).pack(anchor="w", pady=(2,0))
 
         right = tk.Frame(inner, bg=SURFACE)
@@ -238,6 +240,14 @@ class BDOTracker:
             tk.Label(f, text="⬤", font=("Segoe UI",7), bg=BG, fg=fg).pack(side="left")
             tk.Label(f, text=f"  {label}", font=("Segoe UI",8), bg=BG, fg=TEXT_DIM).pack(side="left")
 
+        # ── Progress bar ──
+        self.progress_frame = tk.Frame(self.root, bg=BG, padx=24, pady=4)
+        self.progress_frame.pack(fill="x")
+        self.progress_bar_bg = tk.Frame(self.progress_frame, bg=BORDER, height=4)
+        self.progress_bar_bg.pack(fill="x")
+        self.progress_bar_fill = tk.Frame(self.progress_bar_bg, bg=GOLD, height=4)
+        self.progress_bar_fill.place(x=0, y=0, relheight=1.0, relwidth=0.0)
+
         # ── Column headers ──
         col_hdr = tk.Frame(self.root, bg=SURFACE2, padx=24, pady=5)
         col_hdr.pack(fill="x")
@@ -247,10 +257,8 @@ class BDOTracker:
                  fg=TEXT_DIM, anchor="w", width=13).pack(side="left")
         tk.Label(col_hdr, text="RESETS IN", font=F_HEAD, bg=SURFACE2,
                  fg=TEXT_DIM, anchor="w", width=18).pack(side="left")
-        tk.Label(col_hdr, text="DEL", font=F_HEAD, bg=SURFACE2,
-                 fg=TEXT_DIM, anchor="center", width=6).pack(side="right", padx=(0,6))
         tk.Label(col_hdr, text="DONE", font=F_HEAD, bg=SURFACE2,
-                 fg=TEXT_DIM, anchor="center", width=6).pack(side="right", padx=(0,4))
+                 fg=TEXT_DIM, anchor="center", width=6).pack(side="right", padx=(0,20))
         tk.Frame(self.root, bg=BORDER, height=1).pack(fill="x")
 
         # ── Scrollable list ──
@@ -311,14 +319,13 @@ class BDOTracker:
             "5day":     ("5-DAY RESETS  ——  5 Days After Kill", GOLD),
         }
         seen_groups = set()
-        row_idx = 0  # track visual alternating index within each group
+        row_idx = 0
 
         for act in self.activities:
             rtype = act["reset_type"]
             if rtype not in seen_groups:
                 seen_groups.add(rtype)
                 label, fg = GROUP_LABELS.get(rtype, ("CUSTOM", TEXT_DIM))
-                # Spacer before group (except the first)
                 if seen_groups != {rtype}:
                     tk.Frame(self.rows_frame, bg=BG, height=6).pack(fill="x")
                 hdr = tk.Frame(self.rows_frame, bg=SURFACE2, padx=24, pady=4)
@@ -338,7 +345,6 @@ class BDOTracker:
         rtype  = act["reset_type"]
         state  = self.data.get(name, {})
         done   = state.get("done", False)
-        custom = not any(a["name"] == name for a in DEFAULTS)
 
         rbg   = GREEN_DIM if done else (SURFACE if idx % 2 == 0 else BG)
         nfg   = GREEN     if done else WHITE
@@ -348,24 +354,13 @@ class BDOTracker:
         row.pack(fill="x")
         tk.Frame(self.rows_frame, bg=BORDER, height=1).pack(fill="x")
 
-        # ── RIGHT side: pack these first so left side fills remaining space ──
-
-        # Delete — rightmost.
-        dlbl = tk.Label(row, text="✕", font=("Segoe UI", 10, "bold"),
-                        bg=SURFACE2, fg=TEXT_DIM, width=4, anchor="center",
-                        cursor="hand2", padx=4, pady=4)
-        dlbl.pack(side="right", padx=(4, 20))
-        dlbl.bind("<Button-1>", lambda e, n=name: self._delete_activity(n))
-        dlbl.bind("<Enter>",    lambda e, w=dlbl: w.config(fg=RED,      bg="#2a1015"))
-        dlbl.bind("<Leave>",    lambda e, w=dlbl: w.config(fg=TEXT_DIM, bg=SURFACE2))
-
-        # Checkbox — left of delete. Always same font/width. Colours only change.
+        # ── RIGHT side: pack first so left side fills remaining space ──
         chk_fg = "#0a0a10" if done else TEXT_DIM
         chk_bg = GREEN     if done else SURFACE2
         chk = tk.Label(row, text="✔", font=("Segoe UI", 10, "bold"),
                        bg=chk_bg, fg=chk_fg, width=4, anchor="center",
                        cursor="hand2", padx=4, pady=4)
-        chk.pack(side="right", padx=(0, 4))
+        chk.pack(side="right", padx=(4, 20))
         chk.bind("<Button-1>", lambda e, n=name: self._toggle(n))
 
         # ── LEFT side ──
@@ -387,13 +382,31 @@ class BDOTracker:
         for w in [row, nlbl, cdlbl]:
             w.bind("<Button-1>", lambda e, n=name: self._toggle(n))
 
-        # Hover — only the row-coloured widgets
+        # Hover
         hover_ws = [row, nlbl, cdlbl]
         for w in hover_ws:
             w.bind("<Enter>", lambda e, ws=hover_ws, hb=hovbg: [x.config(bg=hb) for x in ws])
             w.bind("<Leave>", lambda e, ws=hover_ws, ob=rbg:   [x.config(bg=ob)  for x in ws])
 
         self.row_refs[name] = cdlbl
+
+        # Right-click context menu for delete
+        def show_context_menu(e, n=name):
+            menu = tk.Menu(self.root, tearoff=0,
+                           bg=SURFACE2, fg=TEXT,
+                           activebackground=BORDER, activeforeground=RED,
+                           font=("Segoe UI", 10), bd=1,
+                           relief="flat", borderwidth=1)
+            menu.add_command(label=f"✕  Remove activity",
+                             command=lambda n=n: self._delete_activity(n))
+            menu.tk_popup(e.x_root, e.y_root)
+            try:
+                menu.grab_release()
+            except Exception:
+                pass
+
+        for w in [row, nlbl, cdlbl, chk]:
+            w.bind("<Button-3>", lambda e, n=name: show_context_menu(e, n))
 
         # completed_at stored in JSON for future use but not displayed
 
@@ -402,7 +415,6 @@ class BDOTracker:
         if done:
             rem = state.get("reset_at", 0) - time.time()
             return f"Completed {fmt_delta(rem)}" if rem > 0 else "Ready to reset"
-        # 5-day timer only makes sense after a kill — show nothing when not done
         if rtype == "5day":
             return "No recent kill"
         if rtype == "sunday":    ts = next_weekday_1am(6)
@@ -437,7 +449,7 @@ class BDOTracker:
             save_data(self.data)
         return changed
 
-    # ── Tick — only update countdown labels in-place, never full re-render ────
+    # ── Tick ──────────────────────────────────────────────────────────────────
     def _tick(self):
         n = now_local()
         self.clock_var.set(n.strftime(f"%H:%M:%S  {tz_abbr()}"))
@@ -460,7 +472,7 @@ class BDOTracker:
         self._save_geometry_if_pending()
         self.root.after(1000, self._tick)
 
-    # ── Geometry persistence ─────────────────────────────────────────────────
+    # ── Geometry persistence ──────────────────────────────────────────────────
     def _save_geometry_if_pending(self):
         geom = getattr(self, "_pending_geometry", None)
         if geom and geom != self.data.get("_window_geometry"):
@@ -475,6 +487,9 @@ class BDOTracker:
         pct   = int(done/total*100) if total else 0
         self.status_var.set(f"{done}/{total}  ({pct}%)")
         self.subtitle_var.set(f"{done} of {total} weeklies completed this week")
+        bar_colour = GREEN if (done == total and total > 0) else GOLD
+        self.progress_bar_fill.config(bg=bar_colour)
+        self.progress_bar_fill.place(relwidth=done/total if total else 0)
 
     # ── Add custom ────────────────────────────────────────────────────────────
     def _add_custom(self):
@@ -493,7 +508,7 @@ class BDOTracker:
         save_data(self.data)
         self._render_rows()
 
-    # ── Delete any activity (default or custom) ─────────────────────────────
+    # ── Delete any activity (default or custom) ───────────────────────────────
     def _delete_activity(self, name):
         is_default = any(a["name"] == name for a in DEFAULTS)
         note = "\n\nThis is a default weekly. It won't return unless you clear your save data." if is_default else ""
@@ -508,7 +523,7 @@ class BDOTracker:
         save_data(self.data)
         self._render_rows()
 
-    # ── Restore hidden defaults ──────────────────────────────────────────────
+    # ── Restore hidden defaults ───────────────────────────────────────────────
     def _restore_defaults(self):
         hidden = self.data.get("_hidden_defaults", [])
         if not hidden:
