@@ -27,6 +27,17 @@ jobs:
       - name: Build exe
         run: pyinstaller --onefile --noconsole --name "BDO Weekly Tracker" bdo-weekly-tracker.py
 
+      - name: Update version.json
+        shell: bash
+        run: |
+          VERSION=${GITHUB_REF_NAME#v}
+          printf '{"version": "%s"}' "$VERSION" > version.json
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add version.json
+          git commit -m "chore: bump version.json to $VERSION" || echo "No changes to commit"
+          git push
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:

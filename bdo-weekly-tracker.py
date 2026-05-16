@@ -6,8 +6,8 @@ from urllib.request import urlopen
 from urllib.error import URLError
 
 # ── Version ──────────────────────────────────────────────────────────────────
-APP_VERSION     = "1.0.2"
-VERSION_URL     = "https://gist.githubusercontent.com/StormProgramming/8101519cb57aa8d3d974cc9bcad7063f/raw/version.json"
+APP_VERSION     = "1.0.3"
+VERSION_URL     = "https://raw.githubusercontent.com/StormProgramming/bdo-weekly-tracker/main/version.json"
 RELEASES_URL    = "https://github.com/StormProgramming/bdo-weekly-tracker/releases/latest"
 
 # ── Data path ────────────────────────────────────────────────────────────────
